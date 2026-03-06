@@ -6,6 +6,7 @@ protocol AlbumRepositoryProtocol {
     func fetchAlbum(byAppleMusicID id: String) async throws -> Album?
     func fetchAlbum(byID id: UUID) async throws -> Album?
     func fetchAllAlbums() async throws -> [Album]
+    func fetchAlbums(matching query: String, limit: Int?) async throws -> [Album]
 }
 
 struct UnimplementedAlbumRepository: AlbumRepositoryProtocol {
@@ -13,4 +14,5 @@ struct UnimplementedAlbumRepository: AlbumRepositoryProtocol {
     func fetchAlbum(byAppleMusicID id: String) async throws -> Album? { nil }
     func fetchAlbum(byID id: UUID) async throws -> Album? { nil }
     func fetchAllAlbums() async throws -> [Album] { [] }
+    func fetchAlbums(matching query: String, limit: Int?) async throws -> [Album] { [] }
 }

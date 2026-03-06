@@ -36,6 +36,8 @@ struct RootTabView: View {
             }
             .tag(Tab.profile)
         }
+        .tint(AppTheme.Colors.accentMuted)
+        .preferredColorScheme(.dark)
     }
 }
 

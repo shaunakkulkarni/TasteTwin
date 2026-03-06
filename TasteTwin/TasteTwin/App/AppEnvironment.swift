@@ -4,6 +4,7 @@ import SwiftUI
 
 struct AppEnvironment {
     let modelContainer: ModelContainer
+    let musicCatalogService: MusicCatalogServiceProtocol
     let albumRepository: AlbumRepositoryProtocol
     let logRepository: LogRepositoryProtocol
     let tasteRepository: TasteRepositoryProtocol
@@ -12,10 +13,13 @@ struct AppEnvironment {
     @MainActor
     static func live() -> AppEnvironment {
         let modelContainer = SwiftDataStack.makeModelContainer(inMemory: false, seed: SeedData.seedIfNeeded)
+        let modelContext = modelContainer.mainContext
+
         return AppEnvironment(
             modelContainer: modelContainer,
-            albumRepository: UnimplementedAlbumRepository(),
-            logRepository: UnimplementedLogRepository(),
+            musicCatalogService: MockMusicCatalogService(),
+            albumRepository: SwiftDataAlbumRepository(modelContext: modelContext),
+            logRepository: SwiftDataLogRepository(modelContext: modelContext),
             tasteRepository: UnimplementedTasteRepository(),
             recommendationRepository: UnimplementedRecommendationRepository()
         )
@@ -26,10 +30,13 @@ struct AppEnvironment {
         let modelContainer = SwiftDataStack.makeModelContainer(inMemory: true) { context in
             SeedData.seedPreview(into: context)
         }
+        let modelContext = modelContainer.mainContext
+
         return AppEnvironment(
             modelContainer: modelContainer,
-            albumRepository: UnimplementedAlbumRepository(),
-            logRepository: UnimplementedLogRepository(),
+            musicCatalogService: MockMusicCatalogService(),
+            albumRepository: SwiftDataAlbumRepository(modelContext: modelContext),
+            logRepository: SwiftDataLogRepository(modelContext: modelContext),
             tasteRepository: UnimplementedTasteRepository(),
             recommendationRepository: UnimplementedRecommendationRepository()
         )
