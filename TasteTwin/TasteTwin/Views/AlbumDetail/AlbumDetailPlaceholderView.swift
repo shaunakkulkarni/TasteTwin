@@ -61,7 +61,9 @@ struct AlbumDetailView: View {
             }
         }
         .navigationTitle("Album")
+#if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+#endif
         .task {
             viewModel.configure(
                 musicCatalogService: appEnvironment.musicCatalogService,

@@ -58,6 +58,11 @@ final class SwiftDataLogRepository: LogRepositoryProtocol {
         return Array(logs.prefix(limit)).map { $0.asDomain() }
     }
 
+    func fetchAllLogs() async throws -> [LogEntry] {
+        let descriptor = FetchDescriptor<LogEntryRecord>(sortBy: [SortDescriptor(\LogEntryRecord.loggedAt, order: .reverse)])
+        return try modelContext.fetch(descriptor).map { $0.asDomain() }
+    }
+
     func fetchLog(byID id: UUID) async throws -> LogEntry? {
         try await fetchLogRecord(by: id)?.asDomain()
     }
