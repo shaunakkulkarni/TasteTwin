@@ -20,7 +20,7 @@ struct SearchView: View {
                 .padding(.top, 12)
         }
         .navigationTitle("Search")
-        .navigationBarTitleDisplayMode(.large)
+        .searchNavigationBarTitleDisplayMode()
         .searchable(text: $viewModel.query, prompt: "Search albums or artists")
         .onChange(of: viewModel.query) { _, _ in
             viewModel.onQueryChanged()
@@ -86,6 +86,17 @@ struct SearchView: View {
             }
             .scrollIndicators(.hidden)
         }
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func searchNavigationBarTitleDisplayMode() -> some View {
+        #if os(macOS)
+        self
+        #else
+        self.navigationBarTitleDisplayMode(.large)
+        #endif
     }
 }
 

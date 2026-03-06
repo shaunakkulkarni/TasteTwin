@@ -33,7 +33,9 @@ struct LogEntryView: View {
             .scrollIndicators(.hidden)
         }
         .navigationTitle(viewModel.navigationTitle)
+#if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+#endif
         .task {
             viewModel.configure(logRepository: appEnvironment.logRepository)
             await viewModel.loadIfNeeded()

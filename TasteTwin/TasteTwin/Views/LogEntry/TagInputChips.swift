@@ -9,8 +9,6 @@ struct TagInputChips: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 TextField("Add tag", text: $text)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)
                     .background(AppTheme.Colors.inputBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
