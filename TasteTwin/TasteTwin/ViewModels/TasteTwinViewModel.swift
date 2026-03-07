@@ -8,12 +8,16 @@ final class TasteTwinViewModel {
     var evidenceByDimensionID: [UUID: [TasteEvidence]] = [:]
     var expandedDimensionIDs: Set<UUID> = []
     var statusSummary: TasteUpdateStatusSummary = .empty
+    var isExtractionInFlight = false
+    var shouldShowExtractionProgressBar = false
+    var extractionProgressValue = 0.0
     var isLoading = false
     var errorMessage: String?
 
     private var tasteProfileService: TasteProfileServiceProtocol
     private var tasteRepository: TasteRepositoryProtocol
     private var statusRepository: TasteUpdateStatusRepositoryProtocol
+    private var progressSessionTask: Task<Void, Never>?
 
     init(
         tasteProfileService: TasteProfileServiceProtocol,
@@ -40,6 +44,45 @@ final class TasteTwinViewModel {
         errorMessage = nil
         defer { isLoading = false }
 
+        await refreshDimensions()
+        await refreshStatusSummary()
+    }
+
+    func beginExtractionProgressSession() {
+        progressSessionTask?.cancel()
+        progressSessionTask = Task { @MainActor in
+            let startedAt = Date()
+            shouldShowExtractionProgressBar = true
+            extractionProgressValue = max(extractionProgressValue, 0.08)
+
+            await refreshStatusSummary()
+            var baselineInFlight = max(1, statusSummary.pendingCount + statusSummary.processingCount)
+
+            while !Task.isCancelled {
+                await refreshStatusSummary()
+                let currentInFlight = statusSummary.pendingCount + statusSummary.processingCount
+                baselineInFlight = max(baselineInFlight, currentInFlight)
+
+                if currentInFlight > 0 {
+                    let completed = Double(baselineInFlight - currentInFlight) / Double(max(1, baselineInFlight))
+                    extractionProgressValue = min(0.92, max(0.08, completed))
+                } else {
+                    extractionProgressValue = 1.0
+                    let elapsed = Date().timeIntervalSince(startedAt)
+                    if elapsed >= Constants.tasteTwinProgressMinVisibleSeconds {
+                        await refreshDimensions()
+                        shouldShowExtractionProgressBar = false
+                        extractionProgressValue = 0
+                        break
+                    }
+                }
+
+                try? await Task.sleep(for: .milliseconds(Constants.tasteTwinProgressPollMilliseconds))
+            }
+        }
+    }
+
+    private func refreshDimensions() async {
         do {
             let fetched = try await tasteProfileService.fetchTopDimensions(limit: Constants.tasteTwinMaxDimensionCount)
             let visible = fetched
@@ -63,12 +106,16 @@ final class TasteTwinViewModel {
             dimensions = []
             evidenceByDimensionID = [:]
         }
+    }
 
+    private func refreshStatusSummary() async {
         do {
             statusSummary = try await statusRepository.fetchTasteUpdateStatusSummary()
         } catch {
             statusSummary = .empty
         }
+
+        isExtractionInFlight = (statusSummary.pendingCount + statusSummary.processingCount) > 0
     }
 
     func toggleExpanded(for dimensionID: UUID) {

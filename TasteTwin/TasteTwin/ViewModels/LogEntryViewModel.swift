@@ -131,6 +131,7 @@ final class LogEntryViewModel {
             Task { @MainActor in
                 await tasteUpdateCoordinator.processLog(persistedLog.id)
             }
+            NotificationCenter.default.post(name: .didSaveLogEntry, object: persistedLog.id)
             return true
         } catch {
             errorMessage = error.localizedDescription

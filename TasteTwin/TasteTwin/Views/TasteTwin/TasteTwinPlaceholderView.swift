@@ -18,7 +18,9 @@ struct TasteTwinView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: AppTheme.Layout.sectionSpacing) {
                     headerCard
-                    statusCard
+                    if viewModel.shouldShowExtractionProgressBar {
+                        extractionProgressBar
+                    }
                     content
                 }
                 .padding(AppTheme.Layout.contentPadding)
@@ -34,7 +36,13 @@ struct TasteTwinView: View {
                     statusRepository: appEnvironment.tasteUpdateStatusRepository
                 )
                 await viewModel.refresh()
+                if viewModel.isExtractionInFlight {
+                    viewModel.beginExtractionProgressSession()
+                }
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .didSaveLogEntry)) { _ in
+            viewModel.beginExtractionProgressSession()
         }
     }
 
@@ -79,69 +87,11 @@ struct TasteTwinView: View {
         .background(cardBackground)
     }
 
-    private var statusCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Extraction Queue")
-                .font(.headline)
-                .foregroundStyle(AppTheme.Colors.textPrimary)
-
-            HStack(spacing: 10) {
-                statusPill(label: "Processing", value: viewModel.statusSummary.processingCount)
-                statusPill(label: "Pending", value: viewModel.statusSummary.pendingCount)
-                statusPill(label: "Failed", value: viewModel.statusSummary.failedCount)
-            }
-
-            if let latestError = viewModel.statusSummary.latestErrorMessage?.trimmingCharacters(in: .whitespacesAndNewlines),
-               !latestError.isEmpty {
-                Text(latestError)
-                    .font(.caption)
-                    .lineLimit(2)
-                    .foregroundStyle(AppTheme.Colors.danger)
-            } else {
-                Text("No recent extraction errors.")
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.Colors.textTertiary)
-            }
-
-            HStack(spacing: 10) {
-                Button("Retry Pending") {
-                    Task {
-                        await appEnvironment.tasteUpdateCoordinator.retryPending(limit: Constants.tasteUpdateRetryBatchSize)
-                        await viewModel.refresh()
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(AppTheme.Colors.accentMuted)
-                .disabled(viewModel.statusSummary.pendingCount == 0)
-
-                Button("Retry Failed") {
-                    Task {
-                        await appEnvironment.tasteUpdateCoordinator.retryFailed(limit: Constants.tasteUpdateRetryBatchSize)
-                        await viewModel.refresh()
-                    }
-                }
-                .buttonStyle(.bordered)
-                .tint(AppTheme.Colors.danger)
-                .disabled(viewModel.statusSummary.failedCount == 0)
-            }
-            .font(.subheadline.weight(.semibold))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(cardBackground)
-    }
-
-    private func statusPill(label: String, value: Int) -> some View {
-        HStack(spacing: 6) {
-            Text(label)
-            Text("\(value)")
-                .font(.caption.monospacedDigit().weight(.semibold))
-        }
-        .font(.caption)
-        .foregroundStyle(AppTheme.Colors.textSecondary)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(AppTheme.Colors.inputBackground, in: Capsule())
+    private var extractionProgressBar: some View {
+        ProgressView(value: max(0, min(1, viewModel.extractionProgressValue)))
+            .progressViewStyle(.linear)
+            .tint(AppTheme.Colors.accentMuted)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func dimensionCard(_ dimension: TasteDimension) -> some View {

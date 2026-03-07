@@ -8,11 +8,13 @@ struct AppRouter: View {
         RootTabView()
             .task {
                 await appEnvironment.tasteUpdateCoordinator.retryPending(limit: Constants.tasteUpdateRetryBatchSize)
+                await appEnvironment.tasteUpdateCoordinator.retryFailed(limit: Constants.tasteUpdateRetryBatchSize)
             }
             .onChange(of: scenePhase) { _, phase in
                 guard phase == .active else { return }
                 Task {
                     await appEnvironment.tasteUpdateCoordinator.retryPending(limit: Constants.tasteUpdateRetryBatchSize)
+                    await appEnvironment.tasteUpdateCoordinator.retryFailed(limit: Constants.tasteUpdateRetryBatchSize)
                 }
             }
     }

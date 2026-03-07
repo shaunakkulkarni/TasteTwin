@@ -14,4 +14,6 @@ enum Constants {
     static let tasteTwinMaxEvidencePerDimension = 6
     static let tasteUpdateRetryBatchSize = 12
     static let tasteUpdateMaxAutomaticAttempts = 3
+    static let tasteTwinProgressPollMilliseconds = 300
+    static let tasteTwinProgressMinVisibleSeconds = 1.0
 }
