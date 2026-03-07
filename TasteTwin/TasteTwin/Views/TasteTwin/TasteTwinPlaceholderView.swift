@@ -6,7 +6,8 @@ struct TasteTwinView: View {
 
     @State private var viewModel = TasteTwinViewModel(
         tasteProfileService: UnimplementedTasteProfileService(),
-        tasteRepository: UnimplementedTasteRepository()
+        tasteRepository: UnimplementedTasteRepository(),
+        statusRepository: UnimplementedTasteUpdateStatusRepository()
     )
 
     var body: some View {
@@ -17,6 +18,7 @@ struct TasteTwinView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: AppTheme.Layout.sectionSpacing) {
                     headerCard
+                    statusCard
                     content
                 }
                 .padding(AppTheme.Layout.contentPadding)
@@ -28,23 +30,11 @@ struct TasteTwinView: View {
             Task {
                 viewModel.configure(
                     tasteProfileService: appEnvironment.tasteProfileService,
-                    tasteRepository: appEnvironment.tasteRepository
+                    tasteRepository: appEnvironment.tasteRepository,
+                    statusRepository: appEnvironment.tasteUpdateStatusRepository
                 )
                 await viewModel.refresh()
             }
-        }
-        .toolbar {
-#if DEBUG
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Retry Pending") {
-                    Task {
-                        await appEnvironment.tasteUpdateCoordinator.retryPending(limit: Constants.tasteUpdateRetryBatchSize)
-                        await viewModel.refresh()
-                    }
-                }
-                .font(.caption.weight(.semibold))
-            }
-#endif
         }
     }
 
@@ -87,6 +77,71 @@ struct TasteTwinView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .background(cardBackground)
+    }
+
+    private var statusCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Extraction Queue")
+                .font(.headline)
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+
+            HStack(spacing: 10) {
+                statusPill(label: "Processing", value: viewModel.statusSummary.processingCount)
+                statusPill(label: "Pending", value: viewModel.statusSummary.pendingCount)
+                statusPill(label: "Failed", value: viewModel.statusSummary.failedCount)
+            }
+
+            if let latestError = viewModel.statusSummary.latestErrorMessage?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !latestError.isEmpty {
+                Text(latestError)
+                    .font(.caption)
+                    .lineLimit(2)
+                    .foregroundStyle(AppTheme.Colors.danger)
+            } else {
+                Text("No recent extraction errors.")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.Colors.textTertiary)
+            }
+
+            HStack(spacing: 10) {
+                Button("Retry Pending") {
+                    Task {
+                        await appEnvironment.tasteUpdateCoordinator.retryPending(limit: Constants.tasteUpdateRetryBatchSize)
+                        await viewModel.refresh()
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AppTheme.Colors.accentMuted)
+                .disabled(viewModel.statusSummary.pendingCount == 0)
+
+                Button("Retry Failed") {
+                    Task {
+                        await appEnvironment.tasteUpdateCoordinator.retryFailed(limit: Constants.tasteUpdateRetryBatchSize)
+                        await viewModel.refresh()
+                    }
+                }
+                .buttonStyle(.bordered)
+                .tint(AppTheme.Colors.danger)
+                .disabled(viewModel.statusSummary.failedCount == 0)
+            }
+            .font(.subheadline.weight(.semibold))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(cardBackground)
+    }
+
+    private func statusPill(label: String, value: Int) -> some View {
+        HStack(spacing: 6) {
+            Text(label)
+            Text("\(value)")
+                .font(.caption.monospacedDigit().weight(.semibold))
+        }
+        .font(.caption)
+        .foregroundStyle(AppTheme.Colors.textSecondary)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(AppTheme.Colors.inputBackground, in: Capsule())
     }
 
     private func dimensionCard(_ dimension: TasteDimension) -> some View {

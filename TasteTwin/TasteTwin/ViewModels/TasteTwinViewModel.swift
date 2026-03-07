@@ -7,20 +7,32 @@ final class TasteTwinViewModel {
     var dimensions: [TasteDimension] = []
     var evidenceByDimensionID: [UUID: [TasteEvidence]] = [:]
     var expandedDimensionIDs: Set<UUID> = []
+    var statusSummary: TasteUpdateStatusSummary = .empty
     var isLoading = false
     var errorMessage: String?
 
     private var tasteProfileService: TasteProfileServiceProtocol
     private var tasteRepository: TasteRepositoryProtocol
+    private var statusRepository: TasteUpdateStatusRepositoryProtocol
 
-    init(tasteProfileService: TasteProfileServiceProtocol, tasteRepository: TasteRepositoryProtocol) {
+    init(
+        tasteProfileService: TasteProfileServiceProtocol,
+        tasteRepository: TasteRepositoryProtocol,
+        statusRepository: TasteUpdateStatusRepositoryProtocol
+    ) {
         self.tasteProfileService = tasteProfileService
         self.tasteRepository = tasteRepository
+        self.statusRepository = statusRepository
     }
 
-    func configure(tasteProfileService: TasteProfileServiceProtocol, tasteRepository: TasteRepositoryProtocol) {
+    func configure(
+        tasteProfileService: TasteProfileServiceProtocol,
+        tasteRepository: TasteRepositoryProtocol,
+        statusRepository: TasteUpdateStatusRepositoryProtocol
+    ) {
         self.tasteProfileService = tasteProfileService
         self.tasteRepository = tasteRepository
+        self.statusRepository = statusRepository
     }
 
     func refresh() async {
@@ -50,6 +62,12 @@ final class TasteTwinViewModel {
             errorMessage = error.localizedDescription
             dimensions = []
             evidenceByDimensionID = [:]
+        }
+
+        do {
+            statusSummary = try await statusRepository.fetchTasteUpdateStatusSummary()
+        } catch {
+            statusSummary = .empty
         }
     }
 

@@ -13,4 +13,5 @@ enum Constants {
     static let tasteTwinLowConfidenceThreshold = 0.35
     static let tasteTwinMaxEvidencePerDimension = 6
     static let tasteUpdateRetryBatchSize = 12
+    static let tasteUpdateMaxAutomaticAttempts = 3
 }

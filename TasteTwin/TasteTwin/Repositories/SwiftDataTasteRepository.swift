@@ -55,6 +55,7 @@ final class SwiftDataTasteRepository: TasteRepositoryProtocol {
             existing.logEntry = logEntry
             existing.snippet = evidence.snippet
             existing.evidenceType = evidence.evidenceType
+            existing.weightContribution = evidence.weightContribution
             existing.strength = evidence.strength
             try modelContext.save()
             guard let mapped = existing.asDomain() else {
@@ -69,6 +70,7 @@ final class SwiftDataTasteRepository: TasteRepositoryProtocol {
             logEntry: logEntry,
             snippet: evidence.snippet,
             evidenceType: evidence.evidenceType,
+            weightContribution: evidence.weightContribution,
             strength: evidence.strength
         )
         modelContext.insert(record)
@@ -103,6 +105,58 @@ final class SwiftDataTasteRepository: TasteRepositoryProtocol {
             .compactMap { $0.asDomain() }
     }
 
+    func fetchDimensionIDs(forLogEntryID id: UUID) async throws -> [UUID] {
+        let descriptor = FetchDescriptor<TasteEvidenceRecord>()
+        let evidence = try modelContext.fetch(descriptor)
+        let dimensionIDs = evidence
+            .filter { $0.logEntry?.id == id }
+            .compactMap { $0.tasteDimension?.id }
+        return Array(Set(dimensionIDs))
+    }
+
+    func deleteEvidence(forLogEntryID id: UUID) async throws {
+        let descriptor = FetchDescriptor<TasteEvidenceRecord>()
+        let evidence = try modelContext.fetch(descriptor)
+            .filter { $0.logEntry?.id == id }
+
+        guard !evidence.isEmpty else { return }
+        for item in evidence {
+            modelContext.delete(item)
+        }
+        try modelContext.save()
+    }
+
+    func recomputeDimensionAggregate(dimensionID: UUID) async throws -> TasteDimension? {
+        guard let dimension = try await fetchDimensionRecord(byID: dimensionID) else {
+            return nil
+        }
+
+        let descriptor = FetchDescriptor<TasteEvidenceRecord>(sortBy: [SortDescriptor(\TasteEvidenceRecord.strength, order: .reverse)])
+        let evidence = try modelContext.fetch(descriptor)
+            .filter { $0.tasteDimension?.id == dimensionID }
+
+        guard !evidence.isEmpty else {
+            modelContext.delete(dimension)
+            try modelContext.save()
+            return nil
+        }
+
+        let weightAverage = evidence.map(\.weightContribution).reduce(0, +) / Double(evidence.count)
+        let confidenceAverage = evidence.map(\.strength).reduce(0, +) / Double(evidence.count)
+
+        dimension.weight = clamp(weightAverage)
+        dimension.confidence = clamp(confidenceAverage)
+        dimension.updatedAt = .now
+
+        if dimension.summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           let strongest = evidence.first {
+            dimension.summary = "Inferred from: \"\(String(strongest.snippet.prefix(120)))\""
+        }
+
+        try modelContext.save()
+        return dimension.asDomain()
+    }
+
     private func fetchDimensionRecord(byID id: UUID) async throws -> TasteDimensionRecord? {
         let descriptor = FetchDescriptor<TasteDimensionRecord>(predicate: #Predicate { $0.id == id })
         return try modelContext.fetch(descriptor).first
@@ -121,6 +175,10 @@ final class SwiftDataTasteRepository: TasteRepositoryProtocol {
     private func fetchEvidenceRecord(byID id: UUID) async throws -> TasteEvidenceRecord? {
         let descriptor = FetchDescriptor<TasteEvidenceRecord>(predicate: #Predicate { $0.id == id })
         return try modelContext.fetch(descriptor).first
+    }
+
+    private func clamp(_ value: Double) -> Double {
+        min(1.0, max(0.0, value))
     }
 }
 
@@ -153,6 +211,7 @@ private extension TasteEvidenceRecord {
             logEntryID: logID,
             snippet: snippet,
             evidenceType: evidenceType,
+            weightContribution: weightContribution,
             strength: strength
         )
     }

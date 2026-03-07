@@ -12,7 +12,8 @@ struct LogDetailView: View {
         _viewModel = State(initialValue: LogDetailViewModel(
             logID: logID,
             logRepository: UnimplementedLogRepository(),
-            albumRepository: UnimplementedAlbumRepository()
+            albumRepository: UnimplementedAlbumRepository(),
+            tasteUpdateCoordinator: UnimplementedTasteUpdateCoordinator()
         ))
     }
 
@@ -32,7 +33,8 @@ struct LogDetailView: View {
             Task {
                 viewModel.configure(
                     logRepository: appEnvironment.logRepository,
-                    albumRepository: appEnvironment.albumRepository
+                    albumRepository: appEnvironment.albumRepository,
+                    tasteUpdateCoordinator: appEnvironment.tasteUpdateCoordinator
                 )
                 await viewModel.refresh()
             }

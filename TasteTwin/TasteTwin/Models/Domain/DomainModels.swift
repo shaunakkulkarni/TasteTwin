@@ -99,6 +99,20 @@ enum TasteUpdateStatus: String, Codable, CaseIterable, Sendable {
     case failed
 }
 
+struct TasteUpdateStatusSummary: Codable, Hashable, Sendable {
+    let processingCount: Int
+    let pendingCount: Int
+    let failedCount: Int
+    let latestErrorMessage: String?
+
+    static let empty = TasteUpdateStatusSummary(
+        processingCount: 0,
+        pendingCount: 0,
+        failedCount: 0,
+        latestErrorMessage: nil
+    )
+}
+
 struct Album: Identifiable, Codable, Hashable, Sendable {
     let id: UUID
     let appleMusicID: String
@@ -140,6 +154,7 @@ struct TasteEvidence: Identifiable, Codable, Hashable, Sendable {
     let logEntryID: UUID
     let snippet: String
     let evidenceType: EvidenceType
+    let weightContribution: Double
     let strength: Double
 }
 

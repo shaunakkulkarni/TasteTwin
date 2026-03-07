@@ -100,6 +100,7 @@ enum SeedData {
             logEntry: log3,
             snippet: "Emotionally direct vocals with layered atmosphere.",
             evidenceType: .reviewSnippet,
+            weightContribution: 0.88,
             strength: 0.88
         )
 
@@ -108,6 +109,7 @@ enum SeedData {
             logEntry: log2,
             snippet: "Warm analog textures and infectious grooves.",
             evidenceType: .reviewSnippet,
+            weightContribution: 0.8,
             strength: 0.8
         )
 

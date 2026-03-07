@@ -13,16 +13,28 @@ final class LogDetailViewModel {
 
     private var logRepository: LogRepositoryProtocol
     private var albumRepository: AlbumRepositoryProtocol
+    private var tasteUpdateCoordinator: TasteUpdateCoordinating
 
-    init(logID: UUID, logRepository: LogRepositoryProtocol, albumRepository: AlbumRepositoryProtocol) {
+    init(
+        logID: UUID,
+        logRepository: LogRepositoryProtocol,
+        albumRepository: AlbumRepositoryProtocol,
+        tasteUpdateCoordinator: TasteUpdateCoordinating
+    ) {
         self.logID = logID
         self.logRepository = logRepository
         self.albumRepository = albumRepository
+        self.tasteUpdateCoordinator = tasteUpdateCoordinator
     }
 
-    func configure(logRepository: LogRepositoryProtocol, albumRepository: AlbumRepositoryProtocol) {
+    func configure(
+        logRepository: LogRepositoryProtocol,
+        albumRepository: AlbumRepositoryProtocol,
+        tasteUpdateCoordinator: TasteUpdateCoordinating
+    ) {
         self.logRepository = logRepository
         self.albumRepository = albumRepository
+        self.tasteUpdateCoordinator = tasteUpdateCoordinator
     }
 
     func refresh() async {
@@ -65,6 +77,7 @@ final class LogDetailViewModel {
 
         do {
             try await logRepository.deleteLog(id: logID)
+            await tasteUpdateCoordinator.processLogDeletion(logID)
             return true
         } catch {
             errorMessage = error.localizedDescription

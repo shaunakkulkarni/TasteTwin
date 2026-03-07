@@ -6,6 +6,17 @@ protocol TasteProfileServiceProtocol {
     func fetchTopDimensions(limit: Int) async throws -> [TasteDimension]
 }
 
+enum TasteProfileServiceError: Error, LocalizedError {
+    case noValidSignals
+
+    var errorDescription: String? {
+        switch self {
+        case .noValidSignals:
+            return "No valid taste signals were available to persist."
+        }
+    }
+}
+
 @MainActor
 final class TasteProfileService: TasteProfileServiceProtocol {
     private let tasteRepository: TasteRepositoryProtocol
@@ -15,46 +26,52 @@ final class TasteProfileService: TasteProfileServiceProtocol {
     }
 
     func updateTasteProfile(with output: TasteExtractionOutput) async throws {
-        for signal in output.signals {
-            guard
-                let key = TasteDimensionKey(normalized: signal.dimension),
-                !signal.evidenceSnippet.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            else {
+        let sanitizedSignals = sanitizeSignals(output.signals)
+        guard !sanitizedSignals.isEmpty else {
+            throw TasteProfileServiceError.noValidSignals
+        }
+
+        var affectedDimensionIDs = Set(try await tasteRepository.fetchDimensionIDs(forLogEntryID: output.logEntryID))
+        try await tasteRepository.deleteEvidence(forLogEntryID: output.logEntryID)
+
+        for signal in sanitizedSignals {
+            guard let key = TasteDimensionKey(normalized: signal.dimension) else {
                 continue
             }
 
             let canonicalName = key.rawValue
             let existing = try await tasteRepository.fetchDimension(named: canonicalName)
-            let sampleCount = try await existingEvidenceCount(for: existing)
-            let denominator = max(1, sampleCount + 1)
-
             let incomingWeight = signal.direction.lowercased() == "negative"
                 ? clamp(1.0 - signal.confidence)
                 : clamp(signal.confidence)
             let incomingConfidence = clamp(signal.confidence)
 
-            let mergedWeight = merge(existingValue: existing?.weight, incomingValue: incomingWeight, denominator: denominator)
-            let mergedConfidence = merge(existingValue: existing?.confidence, incomingValue: incomingConfidence, denominator: denominator)
-
             let dimension = TasteDimension(
                 id: existing?.id ?? UUID(),
                 name: canonicalName,
-                weight: mergedWeight,
-                confidence: mergedConfidence,
+                weight: incomingWeight,
+                confidence: incomingConfidence,
                 summary: summary(for: signal, key: key, existing: existing),
                 updatedAt: .now
             )
 
             let persistedDimension = try await tasteRepository.upsertDimension(dimension)
+            affectedDimensionIDs.insert(persistedDimension.id)
+
             let evidence = TasteEvidence(
                 id: UUID(),
                 tasteDimensionID: persistedDimension.id,
                 logEntryID: output.logEntryID,
                 snippet: signal.evidenceSnippet,
                 evidenceType: signal.evidenceType,
+                weightContribution: incomingWeight,
                 strength: incomingConfidence
             )
             _ = try await tasteRepository.saveEvidence(evidence)
+        }
+
+        for dimensionID in affectedDimensionIDs {
+            _ = try await tasteRepository.recomputeDimensionAggregate(dimensionID: dimensionID)
         }
     }
 
@@ -62,18 +79,37 @@ final class TasteProfileService: TasteProfileServiceProtocol {
         try await tasteRepository.fetchTopDimensions(limit: limit)
     }
 
-    private func existingEvidenceCount(for dimension: TasteDimension?) async throws -> Int {
-        guard let dimension else { return 0 }
-        return try await tasteRepository.fetchEvidence(forDimensionID: dimension.id).count
-    }
+    private func sanitizeSignals(_ signals: [TasteSignalDTO]) -> [TasteSignalDTO] {
+        var seen = Set<String>()
+        var deduped: [TasteSignalDTO] = []
 
-    private func merge(existingValue: Double?, incomingValue: Double, denominator: Int) -> Double {
-        guard let existingValue else {
-            return clamp(incomingValue)
+        for signal in signals {
+            guard
+                let key = TasteDimensionKey(normalized: signal.dimension)?.rawValue,
+                !signal.evidenceSnippet.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else {
+                continue
+            }
+
+            let evidenceSnippet = signal.evidenceSnippet.trimmingCharacters(in: .whitespacesAndNewlines)
+            let dedupeKey = "\(key.lowercased())|\(evidenceSnippet.lowercased())"
+            guard seen.insert(dedupeKey).inserted else {
+                continue
+            }
+
+            deduped.append(
+                TasteSignalDTO(
+                    dimension: key,
+                    label: signal.label,
+                    direction: signal.direction,
+                    confidence: clamp(signal.confidence),
+                    evidenceSnippet: evidenceSnippet,
+                    evidenceType: signal.evidenceType
+                )
+            )
         }
 
-        let numerator = (existingValue * Double(denominator - 1)) + incomingValue
-        return clamp(numerator / Double(denominator))
+        return deduped
     }
 
     private func summary(for signal: TasteSignalDTO, key: TasteDimensionKey, existing: TasteDimension?) -> String {

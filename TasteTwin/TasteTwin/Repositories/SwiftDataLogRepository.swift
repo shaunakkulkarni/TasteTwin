@@ -116,6 +116,46 @@ final class SwiftDataLogRepository: LogRepositoryProtocol, TasteUpdateStatusRepo
         return Array(pending.prefix(limit))
     }
 
+    func fetchFailedTasteUpdateLogIDs(limit: Int) async throws -> [UUID] {
+        let descriptor = FetchDescriptor<LogEntryRecord>(sortBy: [SortDescriptor(\LogEntryRecord.tasteUpdateLastAttemptAt, order: .reverse)])
+        let failed = try modelContext.fetch(descriptor)
+            .filter { $0.tasteUpdateStatus == .failed }
+            .map(\.id)
+
+        guard limit > 0 else {
+            return failed
+        }
+        return Array(failed.prefix(limit))
+    }
+
+    func fetchTasteUpdateAttemptCount(logID: UUID) async throws -> Int? {
+        try await fetchLogRecord(by: logID)?.tasteUpdateAttemptCount
+    }
+
+    func fetchTasteUpdateStatusSummary() async throws -> TasteUpdateStatusSummary {
+        let descriptor = FetchDescriptor<LogEntryRecord>(sortBy: [SortDescriptor(\LogEntryRecord.tasteUpdateLastAttemptAt, order: .reverse)])
+        let records = try modelContext.fetch(descriptor)
+
+        let processingCount = records.filter { $0.tasteUpdateStatus == .processing }.count
+        let pendingCount = records.filter { $0.tasteUpdateStatus == .pending }.count
+        let failedCount = records.filter { $0.tasteUpdateStatus == .failed }.count
+
+        let latestErrorMessage = records
+            .filter {
+                ($0.tasteUpdateStatus == .pending || $0.tasteUpdateStatus == .failed) &&
+                !($0.tasteUpdateLastError?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+            }
+            .first?
+            .tasteUpdateLastError
+
+        return TasteUpdateStatusSummary(
+            processingCount: processingCount,
+            pendingCount: pendingCount,
+            failedCount: failedCount,
+            latestErrorMessage: latestErrorMessage
+        )
+    }
+
     private func fetchLogRecord(by id: UUID) async throws -> LogEntryRecord? {
         let descriptor = FetchDescriptor<LogEntryRecord>(predicate: #Predicate { $0.id == id })
         return try modelContext.fetch(descriptor).first

@@ -134,6 +134,7 @@ final class TasteEvidenceRecord {
     @Attribute(.unique) var id: UUID
     var snippet: String
     var evidenceTypeRaw: String
+    var weightContribution: Double
     var strength: Double
 
     var tasteDimension: TasteDimensionRecord?
@@ -145,6 +146,7 @@ final class TasteEvidenceRecord {
         logEntry: LogEntryRecord? = nil,
         snippet: String,
         evidenceType: EvidenceType,
+        weightContribution: Double = 0.5,
         strength: Double
     ) {
         self.id = id
@@ -152,6 +154,7 @@ final class TasteEvidenceRecord {
         self.logEntry = logEntry
         self.snippet = snippet
         self.evidenceTypeRaw = evidenceType.rawValue
+        self.weightContribution = weightContribution
         self.strength = strength
     }
 

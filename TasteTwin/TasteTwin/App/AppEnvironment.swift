@@ -10,6 +10,7 @@ struct AppEnvironment {
     let tasteUpdateCoordinator: TasteUpdateCoordinating
     let albumRepository: AlbumRepositoryProtocol
     let logRepository: LogRepositoryProtocol
+    let tasteUpdateStatusRepository: TasteUpdateStatusRepositoryProtocol
     let tasteRepository: TasteRepositoryProtocol
     let recommendationRepository: RecommendationRepositoryProtocol
 
@@ -26,6 +27,7 @@ struct AppEnvironment {
             statusRepository: logRepository,
             logRepository: logRepository,
             albumRepository: albumRepository,
+            tasteRepository: tasteRepository,
             extractionService: extractionService,
             tasteProfileService: tasteProfileService
         )
@@ -38,6 +40,7 @@ struct AppEnvironment {
             tasteUpdateCoordinator: tasteUpdateCoordinator,
             albumRepository: albumRepository,
             logRepository: logRepository,
+            tasteUpdateStatusRepository: logRepository,
             tasteRepository: tasteRepository,
             recommendationRepository: UnimplementedRecommendationRepository()
         )
@@ -58,6 +61,7 @@ struct AppEnvironment {
             statusRepository: logRepository,
             logRepository: logRepository,
             albumRepository: albumRepository,
+            tasteRepository: tasteRepository,
             extractionService: extractionService,
             tasteProfileService: tasteProfileService
         )
@@ -70,6 +74,7 @@ struct AppEnvironment {
             tasteUpdateCoordinator: tasteUpdateCoordinator,
             albumRepository: albumRepository,
             logRepository: logRepository,
+            tasteUpdateStatusRepository: logRepository,
             tasteRepository: tasteRepository,
             recommendationRepository: UnimplementedRecommendationRepository()
         )
