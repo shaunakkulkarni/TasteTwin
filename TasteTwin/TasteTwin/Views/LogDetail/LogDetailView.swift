@@ -28,15 +28,12 @@ struct LogDetailView: View {
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
 #endif
-        .task {
-            viewModel.configure(
-                logRepository: appEnvironment.logRepository,
-                albumRepository: appEnvironment.albumRepository
-            )
-            await viewModel.refresh()
-        }
         .onAppear {
             Task {
+                viewModel.configure(
+                    logRepository: appEnvironment.logRepository,
+                    albumRepository: appEnvironment.albumRepository
+                )
                 await viewModel.refresh()
             }
         }
@@ -101,6 +98,21 @@ struct LogDetailView: View {
             Text(item.artistName)
                 .font(.headline)
                 .foregroundStyle(AppTheme.Colors.textSecondary)
+
+            HStack(spacing: 10) {
+                if let year = item.releaseYear {
+                    Text(String(year))
+                }
+                if let genre = item.genreName {
+                    Text(genre)
+                        .lineLimit(1)
+                }
+                if let trackCount = item.trackCount {
+                    Text("\(trackCount) tracks")
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(AppTheme.Colors.textTertiary)
         }
         .padding(16)
         .background(cardBackground)
@@ -153,10 +165,10 @@ struct LogDetailView: View {
                         appleMusicID: item.appleMusicID,
                         title: item.albumTitle,
                         artistName: item.artistName,
-                        releaseYear: nil,
-                        genreName: nil,
+                        releaseYear: item.releaseYear,
+                        genreName: item.genreName,
                         artworkURL: item.artworkURL,
-                        trackCount: nil,
+                        trackCount: item.trackCount,
                         cachedAt: .now
                     ),
                     mode: .edit(item.id)

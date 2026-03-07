@@ -11,7 +11,9 @@ struct LogEntryView: View {
         _viewModel = State(initialValue: LogEntryViewModel(
             album: album,
             mode: mode,
-            logRepository: UnimplementedLogRepository()
+            logRepository: UnimplementedLogRepository(),
+            tasteExtractionService: UnimplementedTasteExtractionService(),
+            tasteProfileService: UnimplementedTasteProfileService()
         ))
     }
 
@@ -37,7 +39,11 @@ struct LogEntryView: View {
         .navigationBarTitleDisplayMode(.inline)
 #endif
         .task {
-            viewModel.configure(logRepository: appEnvironment.logRepository)
+            viewModel.configure(
+                logRepository: appEnvironment.logRepository,
+                tasteExtractionService: appEnvironment.tasteExtractionService,
+                tasteProfileService: appEnvironment.tasteProfileService
+            )
             await viewModel.loadIfNeeded()
         }
     }

@@ -8,4 +8,8 @@ enum Constants {
 
     static let homeRecentLogLimit = 10
     static let logReviewPreviewMaxLength = 140
+
+    static let tasteTwinMaxDimensionCount = 10
+    static let tasteTwinLowConfidenceThreshold = 0.35
+    static let tasteTwinMaxEvidencePerDimension = 6
 }

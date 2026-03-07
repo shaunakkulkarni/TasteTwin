@@ -26,7 +26,10 @@ final class SwiftDataLogRepository: LogRepositoryProtocol {
 
         modelContext.insert(record)
         try modelContext.save()
-        return record.asDomain()
+        guard let mapped = record.asDomain() else {
+            throw SwiftDataLogRepositoryError.albumNotFound
+        }
+        return mapped
     }
 
     func updateLog(_ entry: LogEntry) async throws -> LogEntry {
@@ -40,7 +43,10 @@ final class SwiftDataLogRepository: LogRepositoryProtocol {
         existing.updatedAt = .now
         try modelContext.save()
 
-        return existing.asDomain()
+        guard let mapped = existing.asDomain() else {
+            throw SwiftDataLogRepositoryError.albumNotFound
+        }
+        return mapped
     }
 
     func deleteLog(id: UUID) async throws {
@@ -55,12 +61,12 @@ final class SwiftDataLogRepository: LogRepositoryProtocol {
     func fetchRecentLogs(limit: Int) async throws -> [LogEntry] {
         let descriptor = FetchDescriptor<LogEntryRecord>(sortBy: [SortDescriptor(\LogEntryRecord.loggedAt, order: .reverse)])
         let logs = try modelContext.fetch(descriptor)
-        return Array(logs.prefix(limit)).map { $0.asDomain() }
+        return Array(logs.prefix(limit)).compactMap { $0.asDomain() }
     }
 
     func fetchAllLogs() async throws -> [LogEntry] {
         let descriptor = FetchDescriptor<LogEntryRecord>(sortBy: [SortDescriptor(\LogEntryRecord.loggedAt, order: .reverse)])
-        return try modelContext.fetch(descriptor).map { $0.asDomain() }
+        return try modelContext.fetch(descriptor).compactMap { $0.asDomain() }
     }
 
     func fetchLog(byID id: UUID) async throws -> LogEntry? {
@@ -91,10 +97,14 @@ enum SwiftDataLogRepositoryError: Error {
 }
 
 private extension LogEntryRecord {
-    func asDomain() -> LogEntry {
-        LogEntry(
+    func asDomain() -> LogEntry? {
+        guard let albumID = album?.id else {
+            return nil
+        }
+
+        return LogEntry(
             id: id,
-            albumID: album?.id ?? UUID(),
+            albumID: albumID,
             rating: rating,
             reviewText: reviewText,
             tags: tags,

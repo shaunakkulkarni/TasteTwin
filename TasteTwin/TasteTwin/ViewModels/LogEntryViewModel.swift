@@ -21,15 +21,31 @@ final class LogEntryViewModel {
 
     private var existingLog: LogEntry?
     private var logRepository: LogRepositoryProtocol
+    private var tasteExtractionService: TasteExtractionServiceProtocol
+    private var tasteProfileService: TasteProfileServiceProtocol
 
-    init(album: Album, mode: Mode, logRepository: LogRepositoryProtocol) {
+    init(
+        album: Album,
+        mode: Mode,
+        logRepository: LogRepositoryProtocol,
+        tasteExtractionService: TasteExtractionServiceProtocol,
+        tasteProfileService: TasteProfileServiceProtocol
+    ) {
         self.album = album
         self.mode = mode
         self.logRepository = logRepository
+        self.tasteExtractionService = tasteExtractionService
+        self.tasteProfileService = tasteProfileService
     }
 
-    func configure(logRepository: LogRepositoryProtocol) {
+    func configure(
+        logRepository: LogRepositoryProtocol,
+        tasteExtractionService: TasteExtractionServiceProtocol,
+        tasteProfileService: TasteProfileServiceProtocol
+    ) {
         self.logRepository = logRepository
+        self.tasteExtractionService = tasteExtractionService
+        self.tasteProfileService = tasteProfileService
     }
 
     var navigationTitle: String {
@@ -90,6 +106,7 @@ final class LogEntryViewModel {
 
         do {
             let now = Date()
+            let persistedLog: LogEntry
             switch mode {
             case .create:
                 let entry = LogEntry(
@@ -101,7 +118,7 @@ final class LogEntryViewModel {
                     loggedAt: now,
                     updatedAt: now
                 )
-                _ = try await logRepository.createLog(entry)
+                persistedLog = try await logRepository.createLog(entry)
             case .edit(let id):
                 let originalLoggedAt = existingLog?.loggedAt ?? now
                 let entry = LogEntry(
@@ -113,12 +130,36 @@ final class LogEntryViewModel {
                     loggedAt: originalLoggedAt,
                     updatedAt: now
                 )
-                _ = try await logRepository.updateLog(entry)
+                persistedLog = try await logRepository.updateLog(entry)
             }
+
+            triggerTasteUpdate(for: persistedLog)
             return true
         } catch {
             errorMessage = error.localizedDescription
             return false
+        }
+    }
+
+    private func triggerTasteUpdate(for entry: LogEntry) {
+        let input = TasteExtractionInput(
+            logEntryID: entry.id,
+            albumTitle: album.title,
+            artistName: album.artistName,
+            genreName: album.genreName,
+            releaseYear: album.releaseYear,
+            rating: entry.rating,
+            reviewText: entry.reviewText,
+            tags: entry.tags
+        )
+
+        Task { @MainActor in
+            do {
+                let output = try await tasteExtractionService.extractSignals(from: input)
+                try await tasteProfileService.updateTasteProfile(with: output)
+            } catch {
+                // Intentional no-op for Phase 4.1: logging must not fail when extraction fails.
+            }
         }
     }
 }

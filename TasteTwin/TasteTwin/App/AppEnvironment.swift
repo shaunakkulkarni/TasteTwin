@@ -5,6 +5,8 @@ import SwiftUI
 struct AppEnvironment {
     let modelContainer: ModelContainer
     let musicCatalogService: MusicCatalogServiceProtocol
+    let tasteExtractionService: TasteExtractionServiceProtocol
+    let tasteProfileService: TasteProfileServiceProtocol
     let albumRepository: AlbumRepositoryProtocol
     let logRepository: LogRepositoryProtocol
     let tasteRepository: TasteRepositoryProtocol
@@ -14,13 +16,16 @@ struct AppEnvironment {
     static func live() -> AppEnvironment {
         let modelContainer = SwiftDataStack.makeModelContainer(inMemory: false, seed: SeedData.seedIfNeeded)
         let modelContext = modelContainer.mainContext
+        let tasteRepository = SwiftDataTasteRepository(modelContext: modelContext)
 
         return AppEnvironment(
             modelContainer: modelContainer,
             musicCatalogService: MockMusicCatalogService(),
+            tasteExtractionService: MockTasteExtractionService(),
+            tasteProfileService: TasteProfileService(tasteRepository: tasteRepository),
             albumRepository: SwiftDataAlbumRepository(modelContext: modelContext),
             logRepository: SwiftDataLogRepository(modelContext: modelContext),
-            tasteRepository: UnimplementedTasteRepository(),
+            tasteRepository: tasteRepository,
             recommendationRepository: UnimplementedRecommendationRepository()
         )
     }
@@ -31,13 +36,16 @@ struct AppEnvironment {
             SeedData.seedPreview(into: context)
         }
         let modelContext = modelContainer.mainContext
+        let tasteRepository = SwiftDataTasteRepository(modelContext: modelContext)
 
         return AppEnvironment(
             modelContainer: modelContainer,
             musicCatalogService: MockMusicCatalogService(),
+            tasteExtractionService: MockTasteExtractionService(),
+            tasteProfileService: TasteProfileService(tasteRepository: tasteRepository),
             albumRepository: SwiftDataAlbumRepository(modelContext: modelContext),
             logRepository: SwiftDataLogRepository(modelContext: modelContext),
-            tasteRepository: UnimplementedTasteRepository(),
+            tasteRepository: tasteRepository,
             recommendationRepository: UnimplementedRecommendationRepository()
         )
     }

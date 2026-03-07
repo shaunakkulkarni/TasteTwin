@@ -47,15 +47,12 @@ struct ProfileView: View {
         .navigationDestination(for: UUID.self) { logID in
             LogDetailView(logID: logID)
         }
-        .task {
-            viewModel.configure(
-                logRepository: appEnvironment.logRepository,
-                albumRepository: appEnvironment.albumRepository
-            )
-            await viewModel.refresh()
-        }
         .onAppear {
             Task {
+                viewModel.configure(
+                    logRepository: appEnvironment.logRepository,
+                    albumRepository: appEnvironment.albumRepository
+                )
                 await viewModel.refresh()
             }
         }

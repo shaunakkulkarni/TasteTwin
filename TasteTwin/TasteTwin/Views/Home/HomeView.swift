@@ -52,15 +52,12 @@ struct HomeView: View {
         .navigationDestination(for: UUID.self) { logID in
             LogDetailView(logID: logID)
         }
-        .task {
-            viewModel.configure(
-                logRepository: appEnvironment.logRepository,
-                albumRepository: appEnvironment.albumRepository
-            )
-            await viewModel.refresh()
-        }
         .onAppear {
             Task {
+                viewModel.configure(
+                    logRepository: appEnvironment.logRepository,
+                    albumRepository: appEnvironment.albumRepository
+                )
                 await viewModel.refresh()
             }
         }
@@ -73,8 +70,8 @@ struct HomeView: View {
                 .foregroundStyle(AppTheme.Colors.textPrimary)
 
             HStack(spacing: 16) {
-                stat(label: "Logs", value: "\(viewModel.totalLogs)")
-                stat(label: "Avg", value: String(format: "%.2f", viewModel.averageRating))
+                stat(label: "Logs", value: "\(viewModel.totalLogCount)")
+                stat(label: "Avg", value: String(format: "%.2f", viewModel.overallAverageRating))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

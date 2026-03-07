@@ -5,6 +5,7 @@ struct RootTabView: View {
     enum Tab: Hashable {
         case home
         case search
+        case tasteTwin
         case profile
     }
 
@@ -27,6 +28,14 @@ struct RootTabView: View {
                 Label("Search", systemImage: "magnifyingglass")
             }
             .tag(Tab.search)
+
+            NavigationStack {
+                TasteTwinView()
+            }
+            .tabItem {
+                Label("Taste Twin", systemImage: "waveform.path.ecg")
+            }
+            .tag(Tab.tasteTwin)
 
             NavigationStack {
                 ProfileView()

@@ -5,17 +5,10 @@ import Observation
 @Observable
 final class HomeViewModel {
     var recentLogs: [LogDisplayItem] = []
+    var totalLogCount = 0
+    var overallAverageRating = 0.0
     var isLoading = false
     var errorMessage: String?
-
-    var totalLogs: Int {
-        recentLogs.count
-    }
-
-    var averageRating: Double {
-        guard !recentLogs.isEmpty else { return 0 }
-        return recentLogs.map(\.rating).reduce(0, +) / Double(recentLogs.count)
-    }
 
     private var logRepository: LogRepositoryProtocol
     private var albumRepository: AlbumRepositoryProtocol
@@ -36,9 +29,19 @@ final class HomeViewModel {
         defer { isLoading = false }
 
         do {
-            let logs = try await logRepository.fetchRecentLogs(limit: Constants.homeRecentLogLimit)
-            let albums = try await albumRepository.fetchAllAlbums()
+            async let recentLogsTask = logRepository.fetchRecentLogs(limit: Constants.homeRecentLogLimit)
+            async let allLogsTask = logRepository.fetchAllLogs()
+            async let albumsTask = albumRepository.fetchAllAlbums()
+
+            let logs = try await recentLogsTask
+            let allLogs = try await allLogsTask
+            let albums = try await albumsTask
             let albumByID = Dictionary(uniqueKeysWithValues: albums.map { ($0.id, $0) })
+
+            totalLogCount = allLogs.count
+            overallAverageRating = allLogs.isEmpty
+                ? 0
+                : allLogs.map(\.rating).reduce(0, +) / Double(allLogs.count)
 
             recentLogs = logs.map { log in
                 let album = albumByID[log.albumID]
@@ -48,6 +51,9 @@ final class HomeViewModel {
                     appleMusicID: album?.appleMusicID ?? "",
                     albumTitle: album?.title ?? "Unknown Album",
                     artistName: album?.artistName ?? "Unknown Artist",
+                    releaseYear: album?.releaseYear,
+                    genreName: album?.genreName,
+                    trackCount: album?.trackCount,
                     artworkURL: album?.artworkURL,
                     rating: log.rating,
                     reviewText: log.reviewText,
@@ -57,6 +63,8 @@ final class HomeViewModel {
                 )
             }
         } catch {
+            totalLogCount = 0
+            overallAverageRating = 0
             errorMessage = error.localizedDescription
         }
     }

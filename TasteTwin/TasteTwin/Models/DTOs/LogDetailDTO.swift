@@ -6,6 +6,9 @@ struct LogDisplayItem: Identifiable, Hashable, Sendable {
     let appleMusicID: String
     let albumTitle: String
     let artistName: String
+    let releaseYear: Int?
+    let genreName: String?
+    let trackCount: Int?
     let artworkURL: String?
     let rating: Double
     let reviewText: String
