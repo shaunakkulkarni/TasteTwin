@@ -21,7 +21,17 @@ struct AppEnvironment {
         let albumRepository = SwiftDataAlbumRepository(modelContext: modelContext)
         let logRepository = SwiftDataLogRepository(modelContext: modelContext)
         let tasteRepository = SwiftDataTasteRepository(modelContext: modelContext)
-        let extractionService = AppleTasteExtractionService(client: AppleFoundationModelTasteClient())
+        let primaryExtractionService = AppleTasteExtractionService(client: AppleFoundationModelTasteClient())
+        let extractionService: TasteExtractionServiceProtocol
+#if DEBUG
+        extractionService = FallbackTasteExtractionService(
+            primary: primaryExtractionService,
+            fallback: MockTasteExtractionService(),
+            emitFallbackNotification: true
+        )
+#else
+        extractionService = primaryExtractionService
+#endif
         let tasteProfileService = TasteProfileService(tasteRepository: tasteRepository)
         let tasteUpdateCoordinator = TasteUpdateCoordinator(
             statusRepository: logRepository,

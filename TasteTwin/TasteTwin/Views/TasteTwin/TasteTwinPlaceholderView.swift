@@ -18,9 +18,11 @@ struct TasteTwinView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: AppTheme.Layout.sectionSpacing) {
                     headerCard
-                    if viewModel.shouldShowExtractionProgressBar {
-                        extractionProgressBar
+                    #if DEBUG
+                    if viewModel.shouldShowExtractionFallbackPill {
+                        extractionFallbackPill
                     }
+                    #endif
                     content
                 }
                 .padding(AppTheme.Layout.contentPadding)
@@ -36,14 +38,13 @@ struct TasteTwinView: View {
                     statusRepository: appEnvironment.tasteUpdateStatusRepository
                 )
                 await viewModel.refresh()
-                if viewModel.isExtractionInFlight {
-                    viewModel.beginExtractionProgressSession()
-                }
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .didSaveLogEntry)) { _ in
-            viewModel.beginExtractionProgressSession()
+        #if DEBUG
+        .onReceive(NotificationCenter.default.publisher(for: .didUseMockExtractionFallback)) { _ in
+            viewModel.showMockExtractionFallbackIndicator()
         }
+        #endif
     }
 
     private var content: some View {
@@ -87,11 +88,17 @@ struct TasteTwinView: View {
         .background(cardBackground)
     }
 
-    private var extractionProgressBar: some View {
-        ProgressView(value: max(0, min(1, viewModel.extractionProgressValue)))
-            .progressViewStyle(.linear)
-            .tint(AppTheme.Colors.accentMuted)
-            .frame(maxWidth: .infinity, alignment: .leading)
+    private var extractionFallbackPill: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "flask")
+                .font(.caption.weight(.semibold))
+            Text("Using test extraction")
+                .font(.caption.weight(.semibold))
+        }
+        .foregroundStyle(AppTheme.Colors.textSecondary)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(AppTheme.Colors.inputBackground, in: Capsule())
     }
 
     private func dimensionCard(_ dimension: TasteDimension) -> some View {

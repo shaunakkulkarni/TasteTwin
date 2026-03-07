@@ -16,4 +16,7 @@ enum Constants {
     static let tasteUpdateMaxAutomaticAttempts = 3
     static let tasteTwinProgressPollMilliseconds = 300
     static let tasteTwinProgressMinVisibleSeconds = 1.0
+    static let tasteTwinFallbackPillVisibleSeconds = 2.0
+    static let tasteTwinRecentSaveSignalWindowSeconds = 20.0
+    static let lastLogSaveTimestampDefaultsKey = "lastLogSaveTimestamp"
 }

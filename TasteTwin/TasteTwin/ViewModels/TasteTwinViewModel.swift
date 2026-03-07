@@ -11,6 +11,7 @@ final class TasteTwinViewModel {
     var isExtractionInFlight = false
     var shouldShowExtractionProgressBar = false
     var extractionProgressValue = 0.0
+    var shouldShowExtractionFallbackPill = false
     var isLoading = false
     var errorMessage: String?
 
@@ -18,15 +19,19 @@ final class TasteTwinViewModel {
     private var tasteRepository: TasteRepositoryProtocol
     private var statusRepository: TasteUpdateStatusRepositoryProtocol
     private var progressSessionTask: Task<Void, Never>?
+    private var fallbackPillTask: Task<Void, Never>?
+    private let userDefaults: UserDefaults
 
     init(
         tasteProfileService: TasteProfileServiceProtocol,
         tasteRepository: TasteRepositoryProtocol,
-        statusRepository: TasteUpdateStatusRepositoryProtocol
+        statusRepository: TasteUpdateStatusRepositoryProtocol,
+        userDefaults: UserDefaults = .standard
     ) {
         self.tasteProfileService = tasteProfileService
         self.tasteRepository = tasteRepository
         self.statusRepository = statusRepository
+        self.userDefaults = userDefaults
     }
 
     func configure(
@@ -75,10 +80,21 @@ final class TasteTwinViewModel {
                         extractionProgressValue = 0
                         break
                     }
+                    try? await Task.sleep(for: .milliseconds(100))
                 }
 
                 try? await Task.sleep(for: .milliseconds(Constants.tasteTwinProgressPollMilliseconds))
             }
+        }
+    }
+
+    func showMockExtractionFallbackIndicator() {
+        fallbackPillTask?.cancel()
+        shouldShowExtractionFallbackPill = true
+        fallbackPillTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(Constants.tasteTwinFallbackPillVisibleSeconds))
+            guard !Task.isCancelled else { return }
+            shouldShowExtractionFallbackPill = false
         }
     }
 
@@ -143,5 +159,16 @@ final class TasteTwinViewModel {
 
     func confidenceText(for dimension: TasteDimension) -> String {
         "\(Int((dimension.confidence * 100).rounded()))% confidence"
+    }
+
+    func consumeRecentLogSaveSignal() -> Bool {
+        let now = Date().timeIntervalSince1970
+        let savedAt = userDefaults.double(forKey: Constants.lastLogSaveTimestampDefaultsKey)
+        guard savedAt > 0, (now - savedAt) <= Constants.tasteTwinRecentSaveSignalWindowSeconds else {
+            return false
+        }
+
+        userDefaults.set(0, forKey: Constants.lastLogSaveTimestampDefaultsKey)
+        return true
     }
 }

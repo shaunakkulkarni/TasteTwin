@@ -28,19 +28,22 @@ final class AppleTasteExtractionService: TasteExtractionServiceProtocol {
     func extractSignals(from input: TasteExtractionInput) async throws -> TasteExtractionOutput {
         let output = try await client.extract(input: input)
         let sanitizedSignals = output.signals.compactMap { signal -> TasteSignalDTO? in
-            guard
-                let dimension = TasteDimensionKey(normalized: signal.dimension)?.rawValue,
-                !signal.evidenceSnippet.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            else {
+            guard let dimension = TasteDimensionKey(normalized: signal.dimension)?.rawValue else {
                 return nil
             }
+
+            let evidenceSnippet = normalizedEvidenceSnippet(
+                rawSnippet: signal.evidenceSnippet,
+                evidenceType: signal.evidenceType,
+                input: input
+            )
 
             return TasteSignalDTO(
                 dimension: dimension,
                 label: signal.label,
                 direction: signal.direction,
                 confidence: min(1.0, max(0.0, signal.confidence)),
-                evidenceSnippet: signal.evidenceSnippet,
+                evidenceSnippet: evidenceSnippet,
                 evidenceType: signal.evidenceType
             )
         }
@@ -54,6 +57,70 @@ final class AppleTasteExtractionService: TasteExtractionServiceProtocol {
             signals: sanitizedSignals,
             summary: output.summary
         )
+    }
+
+    private func normalizedEvidenceSnippet(
+        rawSnippet: String,
+        evidenceType: EvidenceType,
+        input: TasteExtractionInput
+    ) -> String {
+        let trimmedSnippet = rawSnippet.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedReview = input.reviewText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let tags = input.tags.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        switch evidenceType {
+        case .reviewSnippet:
+            if !trimmedReview.isEmpty {
+                if !trimmedSnippet.isEmpty,
+                   trimmedReview.range(of: trimmedSnippet, options: .caseInsensitive) != nil {
+                    return String(trimmedSnippet.prefix(160))
+                }
+                return String(trimmedReview.prefix(160))
+            }
+            if let firstTag = tags.first {
+                return "Tag: \(firstTag)"
+            }
+            return ratingFallbackSnippet(for: input.rating)
+        case .tagSignal:
+            if let matchedTag = matchedTag(for: trimmedSnippet, tags: tags) {
+                return "Tag: \(matchedTag)"
+            }
+            if let firstTag = tags.first {
+                return "Tag: \(firstTag)"
+            }
+            if !trimmedReview.isEmpty {
+                return String(trimmedReview.prefix(160))
+            }
+            return ratingFallbackSnippet(for: input.rating)
+        case .ratingSignal:
+            if !trimmedReview.isEmpty {
+                return String(trimmedReview.prefix(160))
+            }
+            if let firstTag = tags.first {
+                return "Tag: \(firstTag)"
+            }
+            return ratingFallbackSnippet(for: input.rating)
+        }
+    }
+
+    private func matchedTag(for snippet: String, tags: [String]) -> String? {
+        guard !snippet.isEmpty else { return nil }
+        return tags.first {
+            $0.range(of: snippet, options: .caseInsensitive) != nil ||
+            snippet.range(of: $0, options: .caseInsensitive) != nil
+        }
+    }
+
+    private func ratingFallbackSnippet(for rating: Double) -> String {
+        let rounded = (rating * 10).rounded() / 10
+        let valueText: String
+        if rounded.truncatingRemainder(dividingBy: 1) == 0 {
+            valueText = String(Int(rounded))
+        } else {
+            valueText = String(format: "%.1f", rounded)
+        }
+        return "Rating: \(valueText)/5"
     }
 }
 
@@ -178,6 +245,40 @@ struct MockTasteExtractionService: TasteExtractionServiceProtocol {
             return "Tag: \(firstTag)"
         }
         return fallback
+    }
+}
+
+final class FallbackTasteExtractionService: TasteExtractionServiceProtocol {
+    private let primary: TasteExtractionServiceProtocol
+    private let fallback: TasteExtractionServiceProtocol
+    private let emitFallbackNotification: Bool
+
+    init(
+        primary: TasteExtractionServiceProtocol,
+        fallback: TasteExtractionServiceProtocol,
+        emitFallbackNotification: Bool = false
+    ) {
+        self.primary = primary
+        self.fallback = fallback
+        self.emitFallbackNotification = emitFallbackNotification
+    }
+
+    func extractSignals(from input: TasteExtractionInput) async throws -> TasteExtractionOutput {
+        do {
+            return try await primary.extractSignals(from: input)
+        } catch {
+            if error is CancellationError {
+                throw error
+            }
+
+            let fallbackOutput = try await fallback.extractSignals(from: input)
+            if emitFallbackNotification {
+                Task { @MainActor in
+                    NotificationCenter.default.post(name: .didUseMockExtractionFallback, object: nil)
+                }
+            }
+            return fallbackOutput
+        }
     }
 }
 

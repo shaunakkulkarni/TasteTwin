@@ -63,13 +63,48 @@ final class SearchViewModel {
         state = .loading
         do {
             let results = try await catalogService.searchAlbums(query: query)
-            if results.isEmpty {
-                state = .empty
-            } else {
-                state = .loaded(Array(results.prefix(Constants.maxSearchResults)))
+            if !results.isEmpty {
+                updateState(with: results)
+                return
             }
+
+            let cachedResults = try await fetchCachedResults(for: query)
+            updateState(with: cachedResults)
         } catch {
-            state = .error(error.localizedDescription)
+            do {
+                let cachedResults = try await fetchCachedResults(for: query)
+                updateState(with: cachedResults)
+            } catch {
+                state = .error("Search is temporarily unavailable.")
+            }
         }
+    }
+
+    private func fetchCachedResults(for query: String) async throws -> [AlbumSearchResultDTO] {
+        let cached = try await albumRepository.fetchAlbums(matching: query, limit: Constants.maxSearchResults)
+        return cached.map {
+            AlbumSearchResultDTO(
+                appleMusicID: $0.appleMusicID,
+                title: $0.title,
+                artistName: $0.artistName,
+                releaseYear: $0.releaseYear,
+                genreName: $0.genreName,
+                artworkURL: $0.artworkURL
+            )
+        }
+    }
+
+    private func updateState(with results: [AlbumSearchResultDTO]) {
+        let deduped = deduplicate(results)
+        if deduped.isEmpty {
+            state = .empty
+        } else {
+            state = .loaded(Array(deduped.prefix(Constants.maxSearchResults)))
+        }
+    }
+
+    private func deduplicate(_ results: [AlbumSearchResultDTO]) -> [AlbumSearchResultDTO] {
+        var seenAppleMusicIDs = Set<String>()
+        return results.filter { seenAppleMusicIDs.insert($0.appleMusicID).inserted }
     }
 }

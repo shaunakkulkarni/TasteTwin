@@ -131,6 +131,10 @@ final class LogEntryViewModel {
             Task { @MainActor in
                 await tasteUpdateCoordinator.processLog(persistedLog.id)
             }
+            UserDefaults.standard.set(
+                Date().timeIntervalSince1970,
+                forKey: Constants.lastLogSaveTimestampDefaultsKey
+            )
             NotificationCenter.default.post(name: .didSaveLogEntry, object: persistedLog.id)
             return true
         } catch {

@@ -53,6 +53,7 @@ final class AppleFoundationModelTasteClient: FoundationModelTasteClientProtocol 
         return """
         You are extracting structured taste signals from a single music log.
         Only use evidence provided below. Do not invent preferences.
+        Evidence snippets must be copied verbatim from reviewText or tags.
         Output strict JSON only, with no markdown fences.
 
         Allowed dimensions: [\(dimensions)]
@@ -71,15 +72,15 @@ final class AppleFoundationModelTasteClient: FoundationModelTasteClientProtocol 
         {
           "signals": [
             {
-              "dimension": "productionStyle",
-              "label": "polished production",
+              "dimension": "one of allowed dimensions",
+              "label": "short preference label",
               "direction": "positive",
-              "confidence": 0.82,
-              "evidenceSnippet": "loved the glossy production",
-              "evidenceType": "reviewSnippet"
+              "confidence": 0.0,
+              "evidenceSnippet": "exact text copied from review or tag",
+              "evidenceType": "reviewSnippet or tagSignal or ratingSignal"
             }
           ],
-          "summary": "..."
+          "summary": "one sentence summary"
         }
         """
     }
@@ -99,10 +100,7 @@ final class AppleFoundationModelTasteClient: FoundationModelTasteClientProtocol 
 
         let decoded = try decoder.decode(RawExtractionResponse.self, from: data)
         let signals = decoded.signals.compactMap { rawSignal -> TasteSignalDTO? in
-            guard
-                let dimension = TasteDimensionKey(normalized: rawSignal.dimension)?.rawValue,
-                !rawSignal.evidenceSnippet.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            else {
+            guard let dimension = TasteDimensionKey(normalized: rawSignal.dimension)?.rawValue else {
                 return nil
             }
 
