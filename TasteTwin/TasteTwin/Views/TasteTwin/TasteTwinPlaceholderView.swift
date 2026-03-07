@@ -3,12 +3,19 @@ import SwiftData
 
 struct TasteTwinView: View {
     @Environment(\.appEnvironment) private var appEnvironment
+    @Binding private var path: NavigationPath
 
     @State private var viewModel = TasteTwinViewModel(
         tasteProfileService: UnimplementedTasteProfileService(),
         tasteRepository: UnimplementedTasteRepository(),
-        statusRepository: UnimplementedTasteUpdateStatusRepository()
+        statusRepository: UnimplementedTasteUpdateStatusRepository(),
+        logRepository: UnimplementedLogRepository(),
+        albumRepository: UnimplementedAlbumRepository()
     )
+
+    init(path: Binding<NavigationPath>) {
+        _path = path
+    }
 
     var body: some View {
         ZStack {
@@ -35,9 +42,19 @@ struct TasteTwinView: View {
                 viewModel.configure(
                     tasteProfileService: appEnvironment.tasteProfileService,
                     tasteRepository: appEnvironment.tasteRepository,
-                    statusRepository: appEnvironment.tasteUpdateStatusRepository
+                    statusRepository: appEnvironment.tasteUpdateStatusRepository,
+                    logRepository: appEnvironment.logRepository,
+                    albumRepository: appEnvironment.albumRepository
                 )
                 await viewModel.refresh()
+            }
+        }
+        .navigationDestination(for: TasteTwinRoute.self) { route in
+            switch route {
+            case .albumDetail(let result):
+                AlbumDetailView(initialResult: result)
+            case .logDetail(let logID):
+                LogDetailView(logID: logID)
             }
         }
         #if DEBUG
@@ -145,12 +162,33 @@ struct TasteTwinView: View {
                 if viewModel.isExpanded(dimension.id) {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(evidence, id: \.id) { item in
-                            Text("\"\(item.snippet)\"")
-                                .font(.caption)
-                                .foregroundStyle(AppTheme.Colors.textSecondary)
+                            Button {
+                                switch item.destination {
+                                case .album(let album):
+                                    path.append(TasteTwinRoute.albumDetail(album))
+                                case .logDetail(let logID):
+                                    path.append(TasteTwinRoute.logDetail(logID))
+                                }
+                            } label: {
+                                HStack(alignment: .top, spacing: 8) {
+                                    Image(systemName: "link")
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(AppTheme.Colors.accentMuted)
+                                        .padding(.top, 2)
+                                    Text("\"\(item.snippet)\"")
+                                        .font(.caption)
+                                        .foregroundStyle(AppTheme.Colors.textSecondary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(AppTheme.Colors.textTertiary)
+                                        .padding(.top, 2)
+                                }
                                 .padding(10)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .background(AppTheme.Colors.inputBackground, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -171,10 +209,23 @@ struct TasteTwinView: View {
     }
 }
 
+private enum TasteTwinRoute: Hashable {
+    case albumDetail(AlbumSearchResultDTO)
+    case logDetail(UUID)
+}
+
 #Preview {
-    NavigationStack {
-        TasteTwinView()
+    TasteTwinViewPreviewContainer()
+}
+
+private struct TasteTwinViewPreviewContainer: View {
+    @State private var path = NavigationPath()
+
+    var body: some View {
+        NavigationStack(path: $path) {
+            TasteTwinView(path: $path)
+        }
+        .modelContainer(AppEnvironment.preview().modelContainer)
+        .environment(\.appEnvironment, .preview())
     }
-    .modelContainer(AppEnvironment.preview().modelContainer)
-    .environment(\.appEnvironment, .preview())
 }

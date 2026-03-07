@@ -1,11 +1,22 @@
 import Foundation
 import Observation
 
+struct TasteEvidenceDisplayItem: Identifiable, Hashable, Sendable {
+    enum Destination: Hashable, Sendable {
+        case album(AlbumSearchResultDTO)
+        case logDetail(UUID)
+    }
+
+    let id: UUID
+    let snippet: String
+    let destination: Destination
+}
+
 @MainActor
 @Observable
 final class TasteTwinViewModel {
     var dimensions: [TasteDimension] = []
-    var evidenceByDimensionID: [UUID: [TasteEvidence]] = [:]
+    var evidenceByDimensionID: [UUID: [TasteEvidenceDisplayItem]] = [:]
     var expandedDimensionIDs: Set<UUID> = []
     var statusSummary: TasteUpdateStatusSummary = .empty
     var isExtractionInFlight = false
@@ -18,6 +29,8 @@ final class TasteTwinViewModel {
     private var tasteProfileService: TasteProfileServiceProtocol
     private var tasteRepository: TasteRepositoryProtocol
     private var statusRepository: TasteUpdateStatusRepositoryProtocol
+    private var logRepository: LogRepositoryProtocol
+    private var albumRepository: AlbumRepositoryProtocol
     private var progressSessionTask: Task<Void, Never>?
     private var fallbackPillTask: Task<Void, Never>?
     private let userDefaults: UserDefaults
@@ -26,22 +39,30 @@ final class TasteTwinViewModel {
         tasteProfileService: TasteProfileServiceProtocol,
         tasteRepository: TasteRepositoryProtocol,
         statusRepository: TasteUpdateStatusRepositoryProtocol,
+        logRepository: LogRepositoryProtocol,
+        albumRepository: AlbumRepositoryProtocol,
         userDefaults: UserDefaults = .standard
     ) {
         self.tasteProfileService = tasteProfileService
         self.tasteRepository = tasteRepository
         self.statusRepository = statusRepository
+        self.logRepository = logRepository
+        self.albumRepository = albumRepository
         self.userDefaults = userDefaults
     }
 
     func configure(
         tasteProfileService: TasteProfileServiceProtocol,
         tasteRepository: TasteRepositoryProtocol,
-        statusRepository: TasteUpdateStatusRepositoryProtocol
+        statusRepository: TasteUpdateStatusRepositoryProtocol,
+        logRepository: LogRepositoryProtocol,
+        albumRepository: AlbumRepositoryProtocol
     ) {
         self.tasteProfileService = tasteProfileService
         self.tasteRepository = tasteRepository
         self.statusRepository = statusRepository
+        self.logRepository = logRepository
+        self.albumRepository = albumRepository
     }
 
     func refresh() async {
@@ -115,7 +136,11 @@ final class TasteTwinViewModel {
 
             for dimension in visible {
                 let evidence = try await tasteRepository.fetchEvidence(forDimensionID: dimension.id)
-                evidenceByDimensionID[dimension.id] = Array(evidence.prefix(Constants.tasteTwinMaxEvidencePerDimension))
+                var displayItems: [TasteEvidenceDisplayItem] = []
+                for item in evidence.prefix(Constants.tasteTwinMaxEvidencePerDimension) {
+                    displayItems.append(await makeEvidenceDisplayItem(from: item))
+                }
+                evidenceByDimensionID[dimension.id] = displayItems
             }
         } catch {
             errorMessage = error.localizedDescription
@@ -146,8 +171,37 @@ final class TasteTwinViewModel {
         expandedDimensionIDs.contains(dimensionID)
     }
 
-    func evidence(for dimensionID: UUID) -> [TasteEvidence] {
+    func evidence(for dimensionID: UUID) -> [TasteEvidenceDisplayItem] {
         evidenceByDimensionID[dimensionID] ?? []
+    }
+
+    private func makeEvidenceDisplayItem(from evidence: TasteEvidence) async -> TasteEvidenceDisplayItem {
+        do {
+            if let log = try await logRepository.fetchLog(byID: evidence.logEntryID),
+               let album = try await albumRepository.fetchAlbum(byID: log.albumID) {
+                let albumResult = AlbumSearchResultDTO(
+                    appleMusicID: album.appleMusicID,
+                    title: album.title,
+                    artistName: album.artistName,
+                    releaseYear: album.releaseYear,
+                    genreName: album.genreName,
+                    artworkURL: album.artworkURL
+                )
+                return TasteEvidenceDisplayItem(
+                    id: evidence.id,
+                    snippet: evidence.snippet,
+                    destination: .album(albumResult)
+                )
+            }
+        } catch {
+            // Fall through to log detail destination.
+        }
+
+        return TasteEvidenceDisplayItem(
+            id: evidence.id,
+            snippet: evidence.snippet,
+            destination: .logDetail(evidence.logEntryID)
+        )
     }
 
     func displayName(for dimension: TasteDimension) -> String {

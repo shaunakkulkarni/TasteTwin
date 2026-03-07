@@ -4,11 +4,15 @@ import SwiftData
 struct HomeView: View {
     @Environment(\.appEnvironment) private var appEnvironment
 
-    @State private var isShowingQuickLogSearch = false
+    @Binding private var path: NavigationPath
     @State private var viewModel = HomeViewModel(
         logRepository: UnimplementedLogRepository(),
         albumRepository: UnimplementedAlbumRepository()
     )
+
+    init(path: Binding<NavigationPath>) {
+        _path = path
+    }
 
     var body: some View {
         ZStack {
@@ -37,7 +41,9 @@ struct HomeView: View {
                     } else {
                         VStack(spacing: AppTheme.Layout.cardSpacing) {
                             ForEach(viewModel.recentLogs) { item in
-                                NavigationLink(value: item.id) {
+                                Button {
+                                    path.append(HomeRoute.logDetail(item.id))
+                                } label: {
                                     LogCardView(item: item)
                                 }
                                 .buttonStyle(.plain)
@@ -51,11 +57,13 @@ struct HomeView: View {
             .scrollIndicators(.hidden)
         }
         .navigationTitle("Home")
-        .navigationDestination(for: UUID.self) { logID in
-            LogDetailView(logID: logID)
-        }
-        .navigationDestination(isPresented: $isShowingQuickLogSearch) {
-            SearchView()
+        .navigationDestination(for: HomeRoute.self) { route in
+            switch route {
+            case .logDetail(let logID):
+                LogDetailView(logID: logID)
+            case .quickLogSearch:
+                SearchView(path: $path)
+            }
         }
         .overlay(alignment: .bottomTrailing) {
             quickLogButton
@@ -109,7 +117,7 @@ struct HomeView: View {
 
     private var quickLogButton: some View {
         Button {
-            isShowingQuickLogSearch = true
+            path.append(HomeRoute.quickLogSearch)
         } label: {
             Image(systemName: "plus")
                 .font(.system(size: 22, weight: .semibold))
@@ -131,10 +139,23 @@ struct HomeView: View {
     }
 }
 
+private enum HomeRoute: Hashable {
+    case logDetail(UUID)
+    case quickLogSearch
+}
+
 #Preview {
-    NavigationStack {
-        HomeView()
+    HomeViewPreviewContainer()
+}
+
+private struct HomeViewPreviewContainer: View {
+    @State private var path = NavigationPath()
+
+    var body: some View {
+        NavigationStack(path: $path) {
+            HomeView(path: $path)
+        }
+        .modelContainer(AppEnvironment.preview().modelContainer)
+        .environment(\.appEnvironment, .preview())
     }
-    .modelContainer(AppEnvironment.preview().modelContainer)
-    .environment(\.appEnvironment, .preview())
 }

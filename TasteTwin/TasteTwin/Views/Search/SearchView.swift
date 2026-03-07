@@ -4,11 +4,15 @@ import SwiftData
 struct SearchView: View {
     @Environment(\.appEnvironment) private var appEnvironment
 
-    @State private var selectedAlbum: AlbumSearchResultDTO?
+    @Binding private var path: NavigationPath
     @State private var viewModel = SearchViewModel(
         catalogService: MockMusicCatalogService(),
         albumRepository: UnimplementedAlbumRepository()
     )
+
+    init(path: Binding<NavigationPath>) {
+        _path = path
+    }
 
     var body: some View {
         ZStack {
@@ -31,8 +35,11 @@ struct SearchView: View {
                 albumRepository: appEnvironment.albumRepository
             )
         }
-        .navigationDestination(item: $selectedAlbum) { result in
-            AlbumDetailView(initialResult: result)
+        .navigationDestination(for: SearchRoute.self) { route in
+            switch route {
+            case .albumDetail(let result):
+                AlbumDetailView(initialResult: result)
+            }
         }
     }
 
@@ -73,7 +80,7 @@ struct SearchView: View {
                         Button {
                             Task {
                                 await viewModel.cacheSelection(album)
-                                selectedAlbum = album
+                                path.append(SearchRoute.albumDetail(album))
                             }
                         } label: {
                             SearchResultCard(album: album)
@@ -89,6 +96,10 @@ struct SearchView: View {
     }
 }
 
+private enum SearchRoute: Hashable {
+    case albumDetail(AlbumSearchResultDTO)
+}
+
 private extension View {
     @ViewBuilder
     func searchNavigationBarTitleDisplayMode() -> some View {
@@ -101,9 +112,17 @@ private extension View {
 }
 
 #Preview {
-    NavigationStack {
-        SearchView()
+    SearchViewPreviewContainer()
+}
+
+private struct SearchViewPreviewContainer: View {
+    @State private var path = NavigationPath()
+
+    var body: some View {
+        NavigationStack(path: $path) {
+            SearchView(path: $path)
+        }
+        .modelContainer(AppEnvironment.preview().modelContainer)
+        .environment(\.appEnvironment, .preview())
     }
-    .modelContainer(AppEnvironment.preview().modelContainer)
-    .environment(\.appEnvironment, .preview())
 }
