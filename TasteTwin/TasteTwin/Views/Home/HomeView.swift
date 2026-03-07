@@ -4,6 +4,7 @@ import SwiftData
 struct HomeView: View {
     @Environment(\.appEnvironment) private var appEnvironment
 
+    @State private var isShowingQuickLogSearch = false
     @State private var viewModel = HomeViewModel(
         logRepository: UnimplementedLogRepository(),
         albumRepository: UnimplementedAlbumRepository()
@@ -45,12 +46,21 @@ struct HomeView: View {
                     }
                 }
                 .padding(AppTheme.Layout.contentPadding)
+                .padding(.bottom, 96)
             }
             .scrollIndicators(.hidden)
         }
         .navigationTitle("Home")
         .navigationDestination(for: UUID.self) { logID in
             LogDetailView(logID: logID)
+        }
+        .navigationDestination(isPresented: $isShowingQuickLogSearch) {
+            SearchView()
+        }
+        .overlay(alignment: .bottomTrailing) {
+            quickLogButton
+                .padding(.trailing, AppTheme.Layout.contentPadding)
+                .padding(.bottom, 20)
         }
         .onAppear {
             Task {
@@ -95,6 +105,29 @@ struct HomeView: View {
                 .font(.headline)
                 .foregroundStyle(AppTheme.Colors.textPrimary)
         }
+    }
+
+    private var quickLogButton: some View {
+        Button {
+            isShowingQuickLogSearch = true
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(AppTheme.Colors.textPrimary)
+                .frame(width: 56, height: 56)
+                .background(
+                    Circle()
+                        .fill(AppTheme.Colors.accentMuted)
+                )
+                .overlay(
+                    Circle()
+                        .stroke(AppTheme.Colors.cardBorder, lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.28), radius: 10, y: 6)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Quick Log Album")
+        .accessibilityHint("Opens search so you can pick an album and log it quickly.")
     }
 }
 
