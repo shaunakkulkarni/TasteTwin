@@ -21,31 +21,26 @@ final class LogEntryViewModel {
 
     private var existingLog: LogEntry?
     private var logRepository: LogRepositoryProtocol
-    private var tasteExtractionService: TasteExtractionServiceProtocol
-    private var tasteProfileService: TasteProfileServiceProtocol
+    private var tasteUpdateCoordinator: TasteUpdateCoordinating
 
     init(
         album: Album,
         mode: Mode,
         logRepository: LogRepositoryProtocol,
-        tasteExtractionService: TasteExtractionServiceProtocol,
-        tasteProfileService: TasteProfileServiceProtocol
+        tasteUpdateCoordinator: TasteUpdateCoordinating
     ) {
         self.album = album
         self.mode = mode
         self.logRepository = logRepository
-        self.tasteExtractionService = tasteExtractionService
-        self.tasteProfileService = tasteProfileService
+        self.tasteUpdateCoordinator = tasteUpdateCoordinator
     }
 
     func configure(
         logRepository: LogRepositoryProtocol,
-        tasteExtractionService: TasteExtractionServiceProtocol,
-        tasteProfileService: TasteProfileServiceProtocol
+        tasteUpdateCoordinator: TasteUpdateCoordinating
     ) {
         self.logRepository = logRepository
-        self.tasteExtractionService = tasteExtractionService
-        self.tasteProfileService = tasteProfileService
+        self.tasteUpdateCoordinator = tasteUpdateCoordinator
     }
 
     var navigationTitle: String {
@@ -133,33 +128,13 @@ final class LogEntryViewModel {
                 persistedLog = try await logRepository.updateLog(entry)
             }
 
-            triggerTasteUpdate(for: persistedLog)
+            Task { @MainActor in
+                await tasteUpdateCoordinator.processLog(persistedLog.id)
+            }
             return true
         } catch {
             errorMessage = error.localizedDescription
             return false
-        }
-    }
-
-    private func triggerTasteUpdate(for entry: LogEntry) {
-        let input = TasteExtractionInput(
-            logEntryID: entry.id,
-            albumTitle: album.title,
-            artistName: album.artistName,
-            genreName: album.genreName,
-            releaseYear: album.releaseYear,
-            rating: entry.rating,
-            reviewText: entry.reviewText,
-            tags: entry.tags
-        )
-
-        Task { @MainActor in
-            do {
-                let output = try await tasteExtractionService.extractSignals(from: input)
-                try await tasteProfileService.updateTasteProfile(with: output)
-            } catch {
-                // Intentional no-op for Phase 4.1: logging must not fail when extraction fails.
-            }
         }
     }
 }

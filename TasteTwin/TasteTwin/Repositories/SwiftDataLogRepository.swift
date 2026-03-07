@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 
 @MainActor
-final class SwiftDataLogRepository: LogRepositoryProtocol {
+final class SwiftDataLogRepository: LogRepositoryProtocol, TasteUpdateStatusRepositoryProtocol {
     private let modelContext: ModelContext
 
     init(modelContext: ModelContext) {
@@ -21,7 +21,8 @@ final class SwiftDataLogRepository: LogRepositoryProtocol {
             reviewText: entry.reviewText,
             tags: entry.tags,
             loggedAt: entry.loggedAt,
-            updatedAt: entry.updatedAt
+            updatedAt: entry.updatedAt,
+            tasteUpdateStatus: .pending
         )
 
         modelContext.insert(record)
@@ -41,6 +42,8 @@ final class SwiftDataLogRepository: LogRepositoryProtocol {
         existing.reviewText = entry.reviewText
         existing.tags = entry.tags
         existing.updatedAt = .now
+        existing.tasteUpdateStatus = .pending
+        existing.tasteUpdateLastError = nil
         try modelContext.save()
 
         guard let mapped = existing.asDomain() else {
@@ -78,6 +81,39 @@ final class SwiftDataLogRepository: LogRepositoryProtocol {
         return try modelContext.fetch(descriptor)
             .first(where: { $0.album?.id == id })?
             .asDomain()
+    }
+
+    func markTasteUpdateStatus(logID: UUID, status: TasteUpdateStatus, errorMessage: String?) async throws {
+        guard let logRecord = try await fetchLogRecord(by: logID) else {
+            throw SwiftDataLogRepositoryError.logNotFound
+        }
+
+        logRecord.tasteUpdateStatus = status
+        logRecord.tasteUpdateLastAttemptAt = .now
+
+        switch status {
+        case .processing:
+            logRecord.tasteUpdateAttemptCount += 1
+            logRecord.tasteUpdateLastError = nil
+        case .pending, .failed:
+            logRecord.tasteUpdateLastError = errorMessage
+        case .succeeded:
+            logRecord.tasteUpdateLastError = nil
+        }
+
+        try modelContext.save()
+    }
+
+    func fetchPendingTasteUpdateLogIDs(limit: Int) async throws -> [UUID] {
+        let descriptor = FetchDescriptor<LogEntryRecord>(sortBy: [SortDescriptor(\LogEntryRecord.loggedAt, order: .reverse)])
+        let pending = try modelContext.fetch(descriptor)
+            .filter { $0.tasteUpdateStatus == .pending }
+            .map(\.id)
+
+        guard limit > 0 else {
+            return pending
+        }
+        return Array(pending.prefix(limit))
     }
 
     private func fetchLogRecord(by id: UUID) async throws -> LogEntryRecord? {

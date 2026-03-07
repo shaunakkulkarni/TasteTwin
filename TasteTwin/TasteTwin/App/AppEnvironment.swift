@@ -7,6 +7,7 @@ struct AppEnvironment {
     let musicCatalogService: MusicCatalogServiceProtocol
     let tasteExtractionService: TasteExtractionServiceProtocol
     let tasteProfileService: TasteProfileServiceProtocol
+    let tasteUpdateCoordinator: TasteUpdateCoordinating
     let albumRepository: AlbumRepositoryProtocol
     let logRepository: LogRepositoryProtocol
     let tasteRepository: TasteRepositoryProtocol
@@ -16,15 +17,27 @@ struct AppEnvironment {
     static func live() -> AppEnvironment {
         let modelContainer = SwiftDataStack.makeModelContainer(inMemory: false, seed: SeedData.seedIfNeeded)
         let modelContext = modelContainer.mainContext
+        let albumRepository = SwiftDataAlbumRepository(modelContext: modelContext)
+        let logRepository = SwiftDataLogRepository(modelContext: modelContext)
         let tasteRepository = SwiftDataTasteRepository(modelContext: modelContext)
+        let extractionService = AppleTasteExtractionService(client: AppleFoundationModelTasteClient())
+        let tasteProfileService = TasteProfileService(tasteRepository: tasteRepository)
+        let tasteUpdateCoordinator = TasteUpdateCoordinator(
+            statusRepository: logRepository,
+            logRepository: logRepository,
+            albumRepository: albumRepository,
+            extractionService: extractionService,
+            tasteProfileService: tasteProfileService
+        )
 
         return AppEnvironment(
             modelContainer: modelContainer,
             musicCatalogService: MockMusicCatalogService(),
-            tasteExtractionService: MockTasteExtractionService(),
-            tasteProfileService: TasteProfileService(tasteRepository: tasteRepository),
-            albumRepository: SwiftDataAlbumRepository(modelContext: modelContext),
-            logRepository: SwiftDataLogRepository(modelContext: modelContext),
+            tasteExtractionService: extractionService,
+            tasteProfileService: tasteProfileService,
+            tasteUpdateCoordinator: tasteUpdateCoordinator,
+            albumRepository: albumRepository,
+            logRepository: logRepository,
             tasteRepository: tasteRepository,
             recommendationRepository: UnimplementedRecommendationRepository()
         )
@@ -36,15 +49,27 @@ struct AppEnvironment {
             SeedData.seedPreview(into: context)
         }
         let modelContext = modelContainer.mainContext
+        let albumRepository = SwiftDataAlbumRepository(modelContext: modelContext)
+        let logRepository = SwiftDataLogRepository(modelContext: modelContext)
         let tasteRepository = SwiftDataTasteRepository(modelContext: modelContext)
+        let extractionService = MockTasteExtractionService()
+        let tasteProfileService = TasteProfileService(tasteRepository: tasteRepository)
+        let tasteUpdateCoordinator = TasteUpdateCoordinator(
+            statusRepository: logRepository,
+            logRepository: logRepository,
+            albumRepository: albumRepository,
+            extractionService: extractionService,
+            tasteProfileService: tasteProfileService
+        )
 
         return AppEnvironment(
             modelContainer: modelContainer,
             musicCatalogService: MockMusicCatalogService(),
-            tasteExtractionService: MockTasteExtractionService(),
-            tasteProfileService: TasteProfileService(tasteRepository: tasteRepository),
-            albumRepository: SwiftDataAlbumRepository(modelContext: modelContext),
-            logRepository: SwiftDataLogRepository(modelContext: modelContext),
+            tasteExtractionService: extractionService,
+            tasteProfileService: tasteProfileService,
+            tasteUpdateCoordinator: tasteUpdateCoordinator,
+            albumRepository: albumRepository,
+            logRepository: logRepository,
             tasteRepository: tasteRepository,
             recommendationRepository: UnimplementedRecommendationRepository()
         )

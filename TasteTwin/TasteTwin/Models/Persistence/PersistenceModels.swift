@@ -49,6 +49,10 @@ final class LogEntryRecord {
     var tags: [String]
     var loggedAt: Date
     var updatedAt: Date
+    var tasteUpdateStatusRaw: String
+    var tasteUpdateAttemptCount: Int
+    var tasteUpdateLastAttemptAt: Date?
+    var tasteUpdateLastError: String?
 
     var album: AlbumRecord?
 
@@ -66,6 +70,10 @@ final class LogEntryRecord {
         tags: [String],
         loggedAt: Date = .now,
         updatedAt: Date = .now,
+        tasteUpdateStatus: TasteUpdateStatus = .pending,
+        tasteUpdateAttemptCount: Int = 0,
+        tasteUpdateLastAttemptAt: Date? = nil,
+        tasteUpdateLastError: String? = nil,
         tasteEvidence: [TasteEvidenceRecord] = [],
         recommendationReceipts: [RecommendationReceiptRecord] = []
     ) {
@@ -76,8 +84,17 @@ final class LogEntryRecord {
         self.tags = tags
         self.loggedAt = loggedAt
         self.updatedAt = updatedAt
+        self.tasteUpdateStatusRaw = tasteUpdateStatus.rawValue
+        self.tasteUpdateAttemptCount = tasteUpdateAttemptCount
+        self.tasteUpdateLastAttemptAt = tasteUpdateLastAttemptAt
+        self.tasteUpdateLastError = tasteUpdateLastError
         self.tasteEvidence = tasteEvidence
         self.recommendationReceipts = recommendationReceipts
+    }
+
+    var tasteUpdateStatus: TasteUpdateStatus {
+        get { TasteUpdateStatus(rawValue: tasteUpdateStatusRaw) ?? .pending }
+        set { tasteUpdateStatusRaw = newValue.rawValue }
     }
 }
 

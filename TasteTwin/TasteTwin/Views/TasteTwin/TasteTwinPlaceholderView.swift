@@ -33,6 +33,19 @@ struct TasteTwinView: View {
                 await viewModel.refresh()
             }
         }
+        .toolbar {
+#if DEBUG
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Retry Pending") {
+                    Task {
+                        await appEnvironment.tasteUpdateCoordinator.retryPending(limit: Constants.tasteUpdateRetryBatchSize)
+                        await viewModel.refresh()
+                    }
+                }
+                .font(.caption.weight(.semibold))
+            }
+#endif
+        }
     }
 
     private var content: some View {

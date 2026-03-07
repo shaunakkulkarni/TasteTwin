@@ -12,8 +12,7 @@ struct LogEntryView: View {
             album: album,
             mode: mode,
             logRepository: UnimplementedLogRepository(),
-            tasteExtractionService: UnimplementedTasteExtractionService(),
-            tasteProfileService: UnimplementedTasteProfileService()
+            tasteUpdateCoordinator: UnimplementedTasteUpdateCoordinator()
         ))
     }
 
@@ -41,8 +40,7 @@ struct LogEntryView: View {
         .task {
             viewModel.configure(
                 logRepository: appEnvironment.logRepository,
-                tasteExtractionService: appEnvironment.tasteExtractionService,
-                tasteProfileService: appEnvironment.tasteProfileService
+                tasteUpdateCoordinator: appEnvironment.tasteUpdateCoordinator
             )
             await viewModel.loadIfNeeded()
         }

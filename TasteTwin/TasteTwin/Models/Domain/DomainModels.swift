@@ -92,6 +92,13 @@ enum EvidenceType: String, Codable, CaseIterable, Sendable {
     case tagSignal
 }
 
+enum TasteUpdateStatus: String, Codable, CaseIterable, Sendable {
+    case pending
+    case processing
+    case succeeded
+    case failed
+}
+
 struct Album: Identifiable, Codable, Hashable, Sendable {
     let id: UUID
     let appleMusicID: String

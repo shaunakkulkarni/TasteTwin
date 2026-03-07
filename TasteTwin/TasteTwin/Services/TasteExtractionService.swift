@@ -6,12 +6,54 @@ protocol TasteExtractionServiceProtocol {
 
 enum TasteExtractionServiceError: Error, LocalizedError {
     case forcedFailure
+    case noValidSignals
 
     var errorDescription: String? {
         switch self {
         case .forcedFailure:
             return "Mock taste extraction failed."
+        case .noValidSignals:
+            return "No valid taste signals could be extracted."
         }
+    }
+}
+
+final class AppleTasteExtractionService: TasteExtractionServiceProtocol {
+    private let client: FoundationModelTasteClientProtocol
+
+    init(client: FoundationModelTasteClientProtocol) {
+        self.client = client
+    }
+
+    func extractSignals(from input: TasteExtractionInput) async throws -> TasteExtractionOutput {
+        let output = try await client.extract(input: input)
+        let sanitizedSignals = output.signals.compactMap { signal -> TasteSignalDTO? in
+            guard
+                let dimension = TasteDimensionKey(normalized: signal.dimension)?.rawValue,
+                !signal.evidenceSnippet.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else {
+                return nil
+            }
+
+            return TasteSignalDTO(
+                dimension: dimension,
+                label: signal.label,
+                direction: signal.direction,
+                confidence: min(1.0, max(0.0, signal.confidence)),
+                evidenceSnippet: signal.evidenceSnippet,
+                evidenceType: signal.evidenceType
+            )
+        }
+
+        guard !sanitizedSignals.isEmpty else {
+            throw TasteExtractionServiceError.noValidSignals
+        }
+
+        return TasteExtractionOutput(
+            logEntryID: input.logEntryID,
+            signals: sanitizedSignals,
+            summary: output.summary
+        )
     }
 }
 

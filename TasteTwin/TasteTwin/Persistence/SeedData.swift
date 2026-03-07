@@ -55,7 +55,8 @@ enum SeedData {
             reviewText: "Loved the intimate songwriting and low-key production.",
             tags: ["lyrical", "moody", "autumn"],
             loggedAt: Calendar.current.date(byAdding: .day, value: -7, to: now) ?? now,
-            updatedAt: now
+            updatedAt: now,
+            tasteUpdateStatus: .succeeded
         )
 
         let log2 = LogEntryRecord(
@@ -64,7 +65,8 @@ enum SeedData {
             reviewText: "Warm analog textures and infectious grooves.",
             tags: ["groovy", "detailed production"],
             loggedAt: Calendar.current.date(byAdding: .day, value: -4, to: now) ?? now,
-            updatedAt: now
+            updatedAt: now,
+            tasteUpdateStatus: .succeeded
         )
 
         let log3 = LogEntryRecord(
@@ -73,7 +75,8 @@ enum SeedData {
             reviewText: "Emotionally direct vocals with layered atmosphere.",
             tags: ["vocals", "emotional", "late-night"],
             loggedAt: Calendar.current.date(byAdding: .day, value: -1, to: now) ?? now,
-            updatedAt: now
+            updatedAt: now,
+            tasteUpdateStatus: .succeeded
         )
 
         let vocalFocus = TasteDimensionRecord(
